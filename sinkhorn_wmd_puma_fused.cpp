@@ -15,10 +15,6 @@
 #include <sys/types.h>
 #include <sys/timeb.h>
 
-#if 0
-#include "ittnotify.h"
-
-#endif
 
 #define u64 long long unsigned int
 
@@ -73,7 +69,6 @@ typedef struct {
 /******************************* Global Variables ************************/
 
 puma_csr_double_t c_csr;
-//puma_csc_double_t w_csc;
 
 double *r_arr;
 double *vecs;
@@ -93,32 +88,6 @@ unsigned long long getMilliSpan(unsigned long long nTimeStart) {
 	return nSpan;
 }
 
-#define BLOCK_SIZE 16
-void cdist_gemm_dense(REAL *restrict c, double const *const u,
-    double const *const v, const u64 M, const u64 N, const u64 K) {
-  for (u64 j = 0; j < N; j += BLOCK_SIZE)
-  {
-    const u64 j_end = min(j+BLOCK_SIZE, N);
-    for (u64 i = 0; i < M; i += BLOCK_SIZE)
-    {
-      const u64 i_end = min(i+BLOCK_SIZE, M);
-      for (u64 k = 0; k < K; k += BLOCK_SIZE)
-      {
-        const u64 k_end = min(k+BLOCK_SIZE, K);
-        for (u64 jj = j; jj < j_end; jj++) {
-          for (u64 ii = i; ii < i_end; ii++) {
-            REAL s = 0.;
-            for (u64 kk = k; kk < k_end; kk++) {
-              const REAL d = u[ii * K + kk] - v[jj * K + kk];
-              s += (d * d);
-            }
-            c[jj * M + ii] += s;
-          }
-        }
-      }
-    }
-  }
-}
 /*************************** Utilitty Functions **************************/
 REAL inline euclidean_distance(double const *const u, double const *const v) {
 	REAL s = 0.0;
@@ -244,7 +213,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
         #pragma omp barrier
     }
     unsigned long long start = 0, end = 0;
-	start = getMilliCount();
+    start = getMilliCount();
     u64 const *csr_row_ptr = c_csr.row_ptr;
 	u64 const *csr_cols = c_csr.col_inds;
 	double const *csr_vals = c_csr.vals;
@@ -308,13 +277,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 			}
 		}
 	}
-	/*
-	 for (u64 i = 0; i < v_r; i++) {
-	 for (u64 j = 0; j < 64; j++){
-	 printf("%f\n", K[i * data_vocab_size+j]);
-	 }
-	 }
-	 */
+	
 
 	/******************************************************************/
 
@@ -331,7 +294,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 
 	int iteration = 0;
 	while (iteration < max_iter) {
-		//start = getMilliCount();
+		
 
 #pragma omp parallel for
 		for (u64 t = 0; t < nmtp_threads; t++) {
@@ -377,16 +340,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 
 			}
 		}
-#if 0
-		for (u64 i = 0; i < v_r; i++) {
 
-			for (u64 j = 0; j < num_docs; j++) {
-
-				cout << x[i * num_docs + j] << "\n";
-
-			}
-		}
-#endif
 
 #pragma omp parallel for
 		for (u64 t = 0; t < nmtp_threads; t++) {
@@ -405,20 +359,9 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 
 		}
 
-#if 0
-		for (u64 i = 0; i < v_r; i++) {
 
-			for (u64 j = 0; j < num_docs; j++) {
-
-				cout << u[i * num_docs + j] << "\n";
-
-			}
-		}
-#endif
 		iteration++;
-		//end += getMilliSpan(start);
-		//cout << "It=" << iteration << " |" << (double) end / 1000.0 << " s"
-		//		<< endl;
+		
 	}
 
 	//  u = 1.0 / x
@@ -463,7 +406,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 			}
 
 		}
-		//#pragma omp barrier
+		
 	}
 
 #pragma omp parallel for
@@ -495,268 +438,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 	free(r_sel);
 }
 
-void sinkhorn_wmd_cost(const int max_iter, const u64 data_vocab_size,
-		const u64 num_docs, const u64 v_r, const u64 nmtp_threads, 
-        const u64 word2vec_word_embedding_size) {
 
-    
-	
-	// select non-zero word embedding
-	/************************************************************************/
-
-	//select_non_empty_entries(data_vocab_size, r, r_sel, v_sel, vecs, v_r);
-
-    u64 read_bytes_step1 = 1 + (data_vocab_size + v_r * word2vec_word_embedding_size)*sizeof(double);
-    u64 write_bytes_step1 = (v_r + v_r * word2vec_word_embedding_size)*sizeof(double) + 1;
-
-	/************************************************************************/
-	
-	// compute distance between word embeding
-	// compute K
-    u64 read_bytes_step2 = (v_r * nmtp_threads
-                          + v_r * word2vec_word_embedding_size 
-                          + data_vocab_size * word2vec_word_embedding_size
-                          + data_vocab_size * word2vec_word_embedding_size*v_r)*sizeof(double);
-    u64 write_bytes_step2 = (v_r * data_vocab_size 
-                           + v_r * data_vocab_size
-                           + v_r * data_vocab_size)*sizeof(REAL);
-                           
-    u64 flops_step2 =   (v_r * data_vocab_size * (word2vec_word_embedding_size*3+21))
-                       +(v_r * data_vocab_size * 21)
-                       +(v_r * data_vocab_size * 1);                       
-	/******************************************************************/
-	// compute initial x
-    u64 write_bytes_step3 = (v_r * num_docs * 2)*sizeof(REAL);
-                                 
-    u64 binsearch_read_cost = nmtp_threads * log2(c_csr.num_rows) * sizeof(c_csr.row_ptr[0]);
-    u64 binsearch_write_cost = nmtp_threads *  sizeof(u64); 
-	/***************************Main Loop *********************************/   
-    u64 read_bytes_per_iteration = 0;
-    u64 write_bytes_per_iteration = 0;
-    u64 flop_per_iteration = 0;
-    // we need to add all the i terms and multiply by #iterations    
-    u64 read_bytes_step5i = (c_csr.num_rows * sizeof(c_csr.row_ptr[0])
-                          + c_csr.nnz * sizeof(c_csr.vals[0]) 
-                          + c_csr.nnz * sizeof(c_csr.col_inds[0])
-                          )
-                          +((c_csr.nnz * v_r  //data_vocab_size 
-                          + v_r * c_csr.nnz   //num_docs
-                          + c_csr.nnz * v_r ) //data_vocab_size
-                          *sizeof(REAL));
-                          
-    u64 write_bytes_step5i = (v_r * c_csr.nnz)*sizeof(REAL);
- 
-    u64 flops_step5i = (v_r * c_csr.nnz * 4);                        
-
-    u64 read_bytes_step6i = (num_docs * v_r *sizeof(REAL));
-                          
-    u64 write_bytes_step6i = (num_docs * v_r * 2 * sizeof(REAL));
- 
-    u64 flops_step6i = (v_r * num_docs * 20);    // 20 flops for div
-    
-    read_bytes_per_iteration = read_bytes_step5i + read_bytes_step6i;
-    write_bytes_per_iteration = write_bytes_step5i + write_bytes_step6i;
-    flop_per_iteration = flops_step5i + flops_step6i;
-	// # while x changes: x=diag(1./r)*K*(c_csr.*(1./(K’*(1./x))))
-	
-
-	//  u = 1.0 / x
-	//  w_csr.T = (c_csr.multiply(1 / (K.T @ u)))T
-    u64 read_bytes_step7 = (c_csr.num_rows * sizeof(c_csr.row_ptr[0])
-                          + c_csr.nnz * sizeof(c_csr.vals[0]) 
-                          + c_csr.nnz * sizeof(c_csr.col_inds[0]))
-                          +(c_csr.nnz * v_r  //data_vocab_size 
-                          + v_r * c_csr.nnz   //num_docs
-                          + c_csr.nnz * v_r * 2) //data_vocab_size
-                          * sizeof(REAL);
-                          
-    u64 write_bytes_step7 = (v_r * c_csr.nnz)*sizeof(REAL);
- 
-    u64 flops_step7 = (v_r * c_csr.nnz * 5);    
-    
-    u64 read_bytes_step8 =(v_r * num_docs * 2 * sizeof(REAL));
-                          
-    u64 write_bytes_step8 = (num_docs) * sizeof(REAL);
- 
-    u64 flops_step8 = (v_r * num_docs * 2);
-   
-   
-   u64 total_read_bytes = read_bytes_step1 
-                        + read_bytes_step2
-                        +  binsearch_read_cost 
-                        + read_bytes_per_iteration*max_iter
-                        + read_bytes_step7
-                        + read_bytes_step8;
-                        
-   u64 total_write_bytes = write_bytes_step1 
-                        + write_bytes_step2 
-                        + write_bytes_step3 
-                        + binsearch_write_cost
-                        + write_bytes_per_iteration*max_iter
-                        + write_bytes_step7
-                        + write_bytes_step8;
-                        
-   u64 total_flops = flops_step2+flop_per_iteration*max_iter+flops_step7+flops_step8;
-   
-   u64 total_memory_footprint = (2*data_vocab_size 
-   +2 * data_vocab_size * word2vec_word_embedding_size +  c_csr.nnz ) * sizeof(double)
-   + (data_vocab_size * v_r * 3
-   + v_r * num_docs * 2) * sizeof(REAL)
-   + c_csr.nnz * sizeof(u64)
-   + (data_vocab_size + 1) * sizeof(u64);
-   
-   
-   //printf("memory=%llu B read=%llu write=%llu flops=%llu\n", 
-   //total_memory_footprint, total_read_bytes, total_write_bytes, total_flops);
-    double read_bw = 6.4 * nmtp_threads * 1000000000;
-    double write_bw = read_bw * 0.5 ;
-    double peak_flops = 2 * 64 * nmtp_threads * 1000000000;
-    double time_bw = total_read_bytes/read_bw + total_write_bytes/write_bw;
-    double time_flops = total_flops/peak_flops;
-    printf("%llu %llu %llu %llu %llu %0.2f %0.2f %0.4f %0.9f %0.9f\n", 
-    nmtp_threads, 
-    total_memory_footprint, 
-    total_read_bytes,
-    total_write_bytes, 
-    total_flops, 
-    read_bw, 
-    write_bw, 
-    peak_flops, 
-    time_bw, 
-    time_flops);
-    
-}
-
-void sinkhorn_wmd_cost_cached(const int max_iter, const u64 data_vocab_size,
-		const u64 num_docs, const u64 v_r, const u64 nmtp_threads, 
-        const u64 word2vec_word_embedding_size) {
-
-	
-	// select non-zero word embedding
-	/************************************************************************/
-  
-	//select_non_empty_entries(data_vocab_size, r, r_sel, v_sel, vecs, v_r);
-
-    u64 read_bytes_step1 = 1 + (data_vocab_size + v_r * word2vec_word_embedding_size)*sizeof(double);
-    u64 write_bytes_step1 = (v_r + v_r * word2vec_word_embedding_size)*sizeof(double) + 1;
-
-	/************************************************************************/
-	
-	// compute distance between word embeding
-	// compute K
-    u64 read_bytes_step2 = (v_r * nmtp_threads
-                          + v_r * word2vec_word_embedding_size 
-                          + data_vocab_size * word2vec_word_embedding_size
-                          + data_vocab_size * word2vec_word_embedding_size*v_r/8)*sizeof(double);
-    u64 write_bytes_step2 = (v_r * data_vocab_size 
-                           + v_r * data_vocab_size
-                           + v_r * data_vocab_size)*sizeof(REAL);
-                           
-    u64 flops_step2 =   (v_r * data_vocab_size * (word2vec_word_embedding_size*3+21))
-                       +(v_r * data_vocab_size * 21)
-                       +(v_r * data_vocab_size * 1);                       
-	/******************************************************************/
-	// compute initial x
-    u64 write_bytes_step3 = (v_r * num_docs * 2)*sizeof(REAL);
-                                 
-    u64 binsearch_read_cost = nmtp_threads * log2(c_csr.num_rows) * sizeof(c_csr.row_ptr[0]);
-    u64 binsearch_write_cost = nmtp_threads *  sizeof(u64); 
-	/***************************Main Loop *********************************/   
-    u64 read_bytes_per_iteration = 0;
-    u64 write_bytes_per_iteration = 0;
-    u64 flop_per_iteration = 0;
-    // we need to add all the i terms and multiply by #iterations    
-    u64 read_bytes_step5i = (c_csr.num_rows * sizeof(c_csr.row_ptr[0])
-                          + c_csr.nnz * sizeof(c_csr.vals[0]) 
-                          + c_csr.nnz * sizeof(c_csr.col_inds[0])
-                          )
-                          +((c_csr.nnz * v_r/16  //data_vocab_size 
-                          + v_r * c_csr.nnz/16   //num_docs
-                          + c_csr.nnz * v_r ) //data_vocab_size
-                          *sizeof(REAL));
-                          
-    u64 write_bytes_step5i = (v_r * c_csr.nnz)*sizeof(REAL);
- 
-    u64 flops_step5i = (v_r * c_csr.nnz * 4);                        
-
-    u64 read_bytes_step6i = (num_docs * v_r *sizeof(REAL));
-                          
-    u64 write_bytes_step6i = (num_docs * v_r * 2 * sizeof(REAL));
- 
-    u64 flops_step6i = (v_r * num_docs * 20);    // 20 flops for div
-    
-    read_bytes_per_iteration = read_bytes_step5i + read_bytes_step6i;
-    write_bytes_per_iteration = write_bytes_step5i + write_bytes_step6i;
-    flop_per_iteration = flops_step5i + flops_step6i;
-	// # while x changes: x=diag(1./r)*K*(c_csr.*(1./(K’*(1./x))))
-	
-
-	//  u = 1.0 / x
-	//  w_csr.T = (c_csr.multiply(1 / (K.T @ u)))T
-    u64 read_bytes_step7 = (c_csr.num_rows * sizeof(c_csr.row_ptr[0])
-                          + c_csr.nnz * sizeof(c_csr.vals[0]) 
-                          + c_csr.nnz * sizeof(c_csr.col_inds[0]))
-                          +(c_csr.nnz * v_r  //data_vocab_size 
-                          + v_r * c_csr.nnz/16   //num_docs
-                          + c_csr.nnz * v_r * 2/16) //data_vocab_size
-                          * sizeof(REAL);
-                          
-    u64 write_bytes_step7 = (v_r * c_csr.nnz)*sizeof(REAL);
- 
-    u64 flops_step7 = (v_r * c_csr.nnz * 5);    
-    
-    u64 read_bytes_step8 =(v_r * num_docs * 2/16 * sizeof(REAL));
-                          
-    u64 write_bytes_step8 = (num_docs) * sizeof(REAL);
- 
-    u64 flops_step8 = (v_r * num_docs * 2);
-   
-   
-   u64 total_read_bytes = read_bytes_step1 
-                        + read_bytes_step2
-                        +  binsearch_read_cost 
-                        + read_bytes_per_iteration*max_iter
-                        + read_bytes_step7
-                        + read_bytes_step8;
-                        
-   u64 total_write_bytes = write_bytes_step1 
-                        + write_bytes_step2 
-                        + write_bytes_step3 
-                        + binsearch_write_cost
-                        + write_bytes_per_iteration*max_iter
-                        + write_bytes_step7
-                        + write_bytes_step8;
-                        
-   u64 total_flops = flops_step2+flop_per_iteration*max_iter+flops_step7+flops_step8;
-   
-   u64 total_memory_footprint = (2*data_vocab_size 
-   +2 * data_vocab_size * word2vec_word_embedding_size +  c_csr.nnz ) * sizeof(double)
-   + (data_vocab_size * v_r * 3
-   + v_r * num_docs * 2) * sizeof(REAL)
-   + c_csr.nnz * sizeof(u64)
-   + (data_vocab_size + 1) * sizeof(u64);
-   
-   
-   //printf("memory=%llu B read=%llu write=%llu flops=%llu\n", 
-   //total_memory_footprint, total_read_bytes, total_write_bytes, total_flops);
-    double read_bw = 6.4 * nmtp_threads * 1000000000;
-    double write_bw = read_bw * 0.5 ;
-    double peak_flops = 2 * 64 * nmtp_threads * 1000000000;
-    double time_bw = total_read_bytes/read_bw + total_write_bytes/write_bw;
-    double time_flops = total_flops/peak_flops;
-    printf("%llu %llu %llu %llu %llu %0.2f %0.2f %0.4f %0.9f %0.9f\n", 
-    nmtp_threads, 
-    total_memory_footprint, 
-    total_read_bytes,
-    total_write_bytes, 
-    total_flops, 
-    read_bw, 
-    write_bw, 
-    peak_flops, 
-    time_bw, 
-    time_flops);
-    
-}
 void main(int argc, char *argv[]) {
 	const char *mat_filename = "./mat.mtx";
 
@@ -910,11 +592,7 @@ void main(int argc, char *argv[]) {
 		nmtp_threads = omp_get_num_threads();
 	}
 	cout << "num_threads "<<nmtp_threads << endl;
-    
-#if 0
-   __itt_domain* pD = __itt_domain_create( "My Domain" );
-   __itt_frame_begin_v3(pD, NULL);
-#endif
+
 	// Main function.
 	unsigned long long start = 0, end = 0;
 	start = getMilliCount();
@@ -923,13 +601,7 @@ void main(int argc, char *argv[]) {
 			c_csr.num_cols, word2vec_word_embedding_size);
 
 	end = getMilliSpan(start);
-   #if 0
-    __itt_frame_end_v3(pD, NULL);
-    #endif
-	//auto end_time = chrono::high_resolution_clock::now();
-	//cout<<"elapsed=";
-	//cout << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << ":";
-	//cout << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << "\n";
+
 	cout << "elapsed=" << (double) end / 1000.0 << endl;
 	// write output files in scores file
 	ofstream outfile;
@@ -940,156 +612,7 @@ void main(int argc, char *argv[]) {
 	//cout<<std::setprecision(9) << WMD[j] << endl;
 }
 outfile.close();
-#if 0
- //int cores[]={1,2,4,8,16,32,64,128,256,4096,16384,32768,65536};
- /*
-data_vocab_size	v_r	num_docs	nnz	            max_iter
-100,000	        19	5000	    173087	            1
-1,000,000	    19	5000	    173087	            1
-10,000,000	    19	5000	    173087	            1
-100,000,000	    19	5000	    173087	            1
-100,000	        44	5000	    173087	            1
-100,000	        44	5000	    173087	            15
-100,000	        44	5000	    1730870	            15
-100,000	        44	10000	    1730870	            15
-200,000,000	    100	20,000,000	17,308,700,000	    15
-4,000,000,000	100	20,000,000	17,308,700,000	    15
-20,000,000,000	100	20,000,000	17,308,700,000	    15
-40,000,000,000	100	20,000,000	17,308,700,000	    15
- 
- 
- */
- //int cores[]={1536,2048,2560};
- int cores[]={1,2,4,8,16,32,64,128,256,4096,16384,32768,65536};
- int num_cases = sizeof(cores)/sizeof(cores[0]);
- for(int i = 0; i<num_cases;i++ ){
-/*     
 
-
-
-
-
-Dataset7
-Dataset8
-Dataset9
-Dataset10
-Dataset11
-Dataset12
-*/
- /*    
- //Dataset1
- v_r=19;
- max_iter=1; 
- c_csr.num_rows = 100000;
- c_csr.num_cols=5000;
- c_csr.nnz = 173087;
- */
- 
- /*
- //Dataset2
- v_r=19;
- max_iter=1; 
- c_csr.num_rows = 1000000;
- c_csr.num_cols=5000;
- c_csr.nnz = 173087;
- */
- 
- /*
- //Dataset3
- v_r=19;
- max_iter=1; 
- c_csr.num_rows = 10000000;
- c_csr.num_cols=5000;
- c_csr.nnz = 173087;
- */
- 
- /*
- //Dataset4
- v_r=19;
- max_iter=1; 
- c_csr.num_rows = 100000000;
- c_csr.num_cols=5000;
- c_csr.nnz = 173087;
-*/
-
-/*
- //Dataset5
- v_r=44;
- max_iter=1; 
- c_csr.num_rows = 100000;
- c_csr.num_cols=5000;
- c_csr.nnz = 173087;
- 
- */
- /*
- //Dataset6
- v_r=44;
- max_iter=15; 
- c_csr.num_rows = 100000;
- c_csr.num_cols=5000;
- c_csr.nnz = 173087;
- */
- /*
- //Dataset7 100,000	44	5000	1730870	15
-
- v_r=44;
- max_iter=15; 
- c_csr.num_rows = 100000;
- c_csr.num_cols=5000;
- c_csr.nnz = 1730870;
- */
- 
- 
- //Dataset8 100,000	44	10000	1730870	15
- v_r=44;
- max_iter=15; 
- c_csr.num_rows = 100000;
- c_csr.num_cols=10000;
- c_csr.nnz = 1730870;
- 
- /*
- v_r=100;
- max_iter=15; 
- c_csr.num_rows = 200000000;
- c_csr.num_cols =  20000000;
- c_csr.nnz =    17308700000;
- 
- */
- 
- /*
- v_r=100;
- max_iter=15; 
- c_csr.num_rows = 4000000000;
- c_csr.num_cols =   20000000;
- c_csr.nnz =     17308700000;
- */
- 
- /*
- v_r=100;
- max_iter=15; 
- c_csr.num_rows = 20000000000;
- c_csr.num_cols =    20000000;
- c_csr.nnz =      17308700000;
- */
- /*
- v_r=100;
- max_iter=15; 
- c_csr.num_rows = 40000000000;
- c_csr.num_cols =    20000000;
- c_csr.nnz =      17308700000;
- */
- 
- cout <<c_csr.num_rows<<" "<<v_r<< " " << c_csr.num_cols<<" "<<c_csr.nnz<<" "<<max_iter<<" ";
-
- sinkhorn_wmd_cost(max_iter, c_csr.num_rows,
- c_csr.num_cols, v_r, cores[i],
- word2vec_word_embedding_size);
- }
- u64 csr_data =  ( c_csr.nnz ) * sizeof(double) + c_csr.nnz * sizeof(u64) + (c_csr.num_rows + 1) * sizeof(u64);
-
- printf("%llu\n", csr_data);
- //print_csr(c_csr.num_rows, c_csr.vals, c_csr.col_inds, c_csr.row_ptr);
-#endif
 // free allocated memory
 free(WMD);
 free(vecs);
