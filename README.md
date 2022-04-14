@@ -6,17 +6,17 @@ Paper reference will be added upon publication.
 # To Compile
 
 
-* source icc compiler 
+* source your_icc_compiler 
 * source compile
 
 # To Run
 first: download the embedding file from https://www.kaggle.com/datasets/yekenot/fasttext-crawl-300d-2m
 
-*Copy the first 100,001 rows in a file called data/vecs.out
+* Copy the first 100,001 rows in a file called data/vecs.out
 
-*Remove the first line from the file which is 200000 300x
+* Remove the first line from the file which is 200000 300x
 
-*Then you should be good to go. We do not provide the file, since it is large.
+* Then you should be good to go. We do not provide the file, since it is large.
 
 ./name_of_executable
 
