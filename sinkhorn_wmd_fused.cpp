@@ -1,6 +1,3 @@
-
-
-
 #include "common.h"
 
 using namespace std;
@@ -430,6 +427,12 @@ int main(int argc, char* argv[]) {
 	mat_file >> c_csr.num_rows;
 	mat_file >> c_csr.num_cols;
 	mat_file >> c_csr.nnz;
+	
+	if(c_csr.num_rows==0 || c_csr.num_cols==0 || c_csr.nnz==0) 
+    	{
+        cout<< "CSR contains invalid input\n";
+        exit(0);
+    	}
 
 #ifdef VERBOSE
 	cout << "Running: " << argv[0] << ", V:" << c_csr.num_rows
@@ -548,8 +551,14 @@ int main(int argc, char* argv[]) {
 		//cout<<r_arr[i]<<endl;
 		i++;
 	}
-	//cout << "r_arr length:" << i - 1 << endl;
+	
 	r_file.close();
+	
+	if(--i!=c_csr.num_rows)
+    	{
+       	     cout << "Dimension mismatch in:" << r_filename << " exiting\n";
+	     exit(0); 
+    	}
 
 	// select non-zero entry
 	posix_memalign((void**)&r_sel, ALN, (c_csr.num_rows) * sizeof(double));
