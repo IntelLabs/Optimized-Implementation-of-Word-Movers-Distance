@@ -14,7 +14,7 @@ Paper reference will be added upon publication.
 
 * Copy the first 100,001 rows in a file called data/vecs.out
 
-* Remove the first line from the file which is 200000 300x
+* Remove the first line from the file which is 200000 300
 
 * Then you should be good to go. We do not provide the file, since it is large.
 
