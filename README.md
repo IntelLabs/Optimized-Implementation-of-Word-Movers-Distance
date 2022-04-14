@@ -18,10 +18,10 @@ Paper reference will be added upon publication.
 
 * Then you should be good to go. We do not provide the file, since it is large.
 *   Here is a sequence of commands that will help:
-*   * head -n100001 downloaded_file >test.out
-*   * sed '1d' test.out > test2.out
-*   * cut -d"," -f2- test2.out > data/vecs.out
-*   * rm test.out test2.out 
+*   * take first 100001 lines: head -n100001 downloaded_file >test.out
+*   * remove first line: sed '1d' test.out > test2.out
+*   * remove first column of each line: cut -d" " -f2- test2.out > data/vecs.out
+*   * discard temprary files: rm test.out test2.out 
 
 
 
