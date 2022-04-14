@@ -454,17 +454,26 @@ int main(int argc, char* argv[]) {
 		exit(0);
 	}
 
-	i = 0;
-	for (u64 j = 0; j < c_csr.num_rows; j++) {
+	for (u64 j = 0; j < c_csr.num_rows && !v_file.eof(); j++) {
 		getline(v_file, line);
 		stringstream linestream(line);
 		string data;
 		for (u64 l = 0; l < word2vec_word_embedding_size; l++) {
-			std::getline(linestream, data, ','); // read up-to the
+			std
+				::getline(linestream, data, ','); // read up-to the
 			vecs[j * word2vec_word_embedding_size + l] = stod(data);
 		}
+        i++;
+
 	}
 	v_file.close();
+
+    if(c_csr.num_rows!=i)
+    {
+        cout << "Dimensions do not match " << v_filename << " exiting\n";
+		exit(0);
+    }
+    i=0;
 
 	double* WMD;
 	posix_memalign((void**)&WMD, ALN, (c_csr.num_cols) * sizeof(double));

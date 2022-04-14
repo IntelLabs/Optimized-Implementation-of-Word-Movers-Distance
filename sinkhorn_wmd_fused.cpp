@@ -515,7 +515,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	i = 0;
-	for (u64 j = 0; j < c_csr.num_rows; j++) {
+	for (u64 j = 0; j < c_csr.num_rows && !v_file.eof(); j++) {
 		getline(v_file, line);
 		stringstream linestream(line);
 		string data;
@@ -524,10 +524,17 @@ int main(int argc, char* argv[]) {
 				::getline(linestream, data, ','); // read up-to the
 			vecs[j * word2vec_word_embedding_size + l] = stod(data);
 		}
+        i++;
 
 	}
 	v_file.close();
 
+    if(c_csr.num_rows!=i)
+    {
+        cout << "Dimensions do not match " << v_filename << " exiting\n";
+		exit(0);
+    }
+    i=0;
 	// Now read from the r.out file: this is the word frequency in the input file.
 	const char* r_filename = "./data/r.out";
 	cout << "reading r (sparse vector): " << r_filename << endl;
