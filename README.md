@@ -5,8 +5,7 @@ Paper reference will be added upon publication.
 
 # To Compile
 
-chmod +x ./compile
-./compile
+source compile
 
 # To Run
 ./name_of_executable

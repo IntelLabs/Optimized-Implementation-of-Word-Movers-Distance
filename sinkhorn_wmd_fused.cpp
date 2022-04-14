@@ -1,77 +1,23 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <sstream>
-
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <omp.h>
-#include <assert.h>
-#include <bits/stdc++.h>
-#include<iomanip>
-
-#include <sys/types.h>
-#include <sys/timeb.h>
 
 
-#define u64 long long unsigned int
+
+#include "common.h"
 
 using namespace std;
 
-#ifndef ALN
-#define ALN 64
-#endif
-#define min(a,b) a<b?a:b
 
-#define REAL double
-
-double *r_sel;
-double *v_sel;
+double* r_sel;
+double* v_sel;
 
 u64 v_r = 0;
 /******************************* Global Variables ************************/
-const static int word2vec_word_embedding_size = 300;
-const static REAL lamda = -1.;
+
 int max_iter = 1;
-
-/******************Common Data Structure *****************/
-
-typedef struct connector_t {
-	u64 u, v;
-	double edge_weight;
-
-} connector_t;
-
-/* A simple CSR struct.  */
-typedef struct {
-	u64 num_rows;
-	u64 num_cols;
-	u64 nnz;
-
-	u64 *row_ptr;
-	u64 *col_inds;
-	double *vals;
-} puma_csr_double_t;
-
-/* A simple CSC struct.  */
-typedef struct {
-	u64 num_rows;
-	u64 num_cols;
-	u64 nnz;
-
-	u64 *col_ptr;
-	u64 *row_inds;
-	REAL *vals;
-} puma_csc_double_t;
-
-/******************************* Global Variables ************************/
-
 puma_csr_double_t c_csr;
+//puma_csc_double_t w_csc;
 
-double *r_arr;
-double *vecs;
+double* r_arr;
+double* vecs;
 u64 nmtp_threads = 1;
 
 /******************************* Timing Function **************************/
@@ -89,7 +35,7 @@ unsigned long long getMilliSpan(unsigned long long nTimeStart) {
 }
 
 /*************************** Utilitty Functions **************************/
-REAL inline euclidean_distance(double const *const u, double const *const v) {
+REAL inline euclidean_distance(double const* const u, double const* const v) {
 	REAL s = 0.0;
 #pragma unroll
 	for (u64 i = 0; i < word2vec_word_embedding_size; ++i) {
@@ -99,18 +45,18 @@ REAL inline euclidean_distance(double const *const u, double const *const v) {
 	return sqrt(s);
 }
 
-void inline select_non_empty_entries(u64 data_vocab_size, double const * const restrict r,
-		double * restrict r_sel, double * restrict v_sel,
-		double const * const restrict vecs, u64 &v_r) {
+void inline select_non_empty_entries(u64 data_vocab_size, double const* const __restrict__ r,
+	double* __restrict__ r_sel, double* __restrict__ v_sel,
+	double const* const __restrict__ vecs, u64& v_r) {
 	for (u64 i = 0; i < data_vocab_size; i++)
 	{
 		if (r[i] == 0)
-		continue;
-		r_sel[v_r] = 1.0/r[i];
+			continue;
+		r_sel[v_r] = 1.0 / r[i];
 
 		// copy those words
-		double *v_sel_ptr = v_sel + v_r * word2vec_word_embedding_size;
-		const double *vecs_ptr = vecs + i * word2vec_word_embedding_size;
+		double* v_sel_ptr = v_sel + v_r * word2vec_word_embedding_size;
+		const double* vecs_ptr = vecs + i * word2vec_word_embedding_size;
 #pragma omp parallel for
 		for (u64 k = 0; k < word2vec_word_embedding_size; k++) {
 			v_sel_ptr[k] = vecs_ptr[k];
@@ -119,7 +65,7 @@ void inline select_non_empty_entries(u64 data_vocab_size, double const * const r
 	}
 }
 
-void print_matrix(double *X, u64 rows, u64 cols) {
+void print_matrix(double* X, u64 rows, u64 cols) {
 	for (u64 i = 0; i < rows; i++) {
 
 		for (u64 j = 0; j < cols; j++) {
@@ -130,7 +76,7 @@ void print_matrix(double *X, u64 rows, u64 cols) {
 	}
 }
 
-void print_csr(u64 num_rows, double *vals, u64 *col_inds, u64 *row_ptr) {
+void print_csr(u64 num_rows, double* vals, u64* col_inds, u64* row_ptr) {
 	for (u64 i = 0; i < num_rows; i++) {
 		double sum = 0.;
 		for (u64 e = row_ptr[i]; e < row_ptr[i + 1]; e++) {
@@ -143,10 +89,10 @@ void print_csr(u64 num_rows, double *vals, u64 *col_inds, u64 *row_ptr) {
 }
 
 static inline u64 p_binary_search(
-u64 const *const restrict weights,
-u64 left,
-u64 right,
-u64 const query) {
+	u64 const* const __restrict__ weights,
+	u64 left,
+	u64 right,
+	u64 const query) {
 	while ((right - left) > 0) {
 		u64 mid = left + ((right - left) >> 1);
 
@@ -156,7 +102,8 @@ u64 const query) {
 
 		if (weights[mid] < query) {
 			left = mid + 1;
-		} else {
+		}
+		else {
 			right = mid;
 		}
 	}
@@ -165,81 +112,81 @@ u64 const query) {
 }
 
 /*************************** Utilitty Functions **************************/
-void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
-		const REAL lamda, const int max_iter, const u64 data_vocab_size,
-		const u64 num_docs, const u64 word2vec_word_embedding_size) {
+void inline sinkhorn_wmd(const double* r, const double* vecs, REAL* WMD,
+	const REAL lamda, const int max_iter, const u64 data_vocab_size,
+	const u64 num_docs, const u64 word2vec_word_embedding_size) {
 
 	// select non-zero word embedding
 	/************************************************************************/
 
 	select_non_empty_entries(data_vocab_size, r, r_sel, v_sel, vecs, v_r);
 
-	//cout<<nmtp_threads<<endl;
+	
 
 	/************************************************************************/
 	// M = cdist(vecs[sel], vecs).astype(np.float64)
-    cout << "volcabulary size in the input doc: " << v_r << endl;
+	
 #ifdef VERBOSE
 	cout << "volcabulary size in the input doc: " << v_r << endl;
 	cout << "num docs: " << num_docs << endl;
 #endif
-	REAL *M;
-	posix_memalign((void**) &M, ALN, (v_r * data_vocab_size) * sizeof(REAL));
+	REAL* M;
+	posix_memalign((void**)&M, ALN, (v_r * data_vocab_size) * sizeof(REAL));
 	assert(M != NULL);
 
 	//# K=exp(-lambda * M)
 	//  K = np.exp(- M * lamb)
-	REAL *K;
-	posix_memalign((void**) &K, ALN, (v_r * data_vocab_size) * sizeof(REAL));
+	REAL* K;
+	posix_memalign((void**)&K, ALN, (v_r * data_vocab_size) * sizeof(REAL));
 	assert(K != NULL);
 
-	
-	REAL *x;
-	posix_memalign((void**) &x, ALN, (v_r * num_docs) * sizeof(REAL));
+
+	REAL* x;
+	posix_memalign((void**)&x, ALN, (v_r * num_docs) * sizeof(REAL));
 	assert(x != NULL);
 
 	// u=1/x
-	REAL *u;
-	posix_memalign((void**) &u, ALN, (v_r * num_docs) * sizeof(REAL));
+	REAL* u;
+	posix_memalign((void**)&u, ALN, (v_r * num_docs) * sizeof(REAL));
 	assert(u != NULL);
 
-	REAL *K_over_r;
-	posix_memalign((void**) &K_over_r, ALN,
-			(data_vocab_size * v_r) * sizeof(REAL));
+	REAL* K_over_r;
+	posix_memalign((void**)&K_over_r, ALN,
+		(data_vocab_size * v_r) * sizeof(REAL));
 	assert(K_over_r != NULL);
 
-    #pragma omp parallel
-    {
-        #pragma omp barrier
-    }
-    unsigned long long start = 0, end = 0;
-    start = getMilliCount();
-    u64 const *csr_row_ptr = c_csr.row_ptr;
-	u64 const *csr_cols = c_csr.col_inds;
-	double const *csr_vals = c_csr.vals;
-    u64 total_items_csr = c_csr.nnz;
-    u64 csr_item_per_mtp = (total_items_csr + nmtp_threads - 1)
-        / nmtp_threads;
-    u64* mtps_start_item_csr, *mtps_end_item_csr, *row_id_start;
-    mtps_start_item_csr=new u64[nmtp_threads];
-    mtps_end_item_csr=new u64[nmtp_threads];
-    row_id_start= new u64[nmtp_threads];
+#pragma omp parallel
+	{
+#pragma omp barrier
+	}
+	//unsigned long long start = 0, end = 0;
+	//start = getMilliCount();
+	u64 const* csr_row_ptr = c_csr.row_ptr;
+	u64 const* csr_cols = c_csr.col_inds;
+	double const* csr_vals = c_csr.vals;
+	u64 total_items_csr = c_csr.nnz;
+	u64 csr_item_per_mtp = (total_items_csr + nmtp_threads - 1)
+		/ nmtp_threads;
+	u64* mtps_start_item_csr, * mtps_end_item_csr, * row_id_start;
+	mtps_start_item_csr = new u64[nmtp_threads];
+	mtps_end_item_csr = new u64[nmtp_threads];
+	row_id_start = new u64[nmtp_threads];
 	// compute initial x
 #pragma omp parallel for
 	for (u64 t = 0; t < nmtp_threads; t++) {
 
-        mtps_start_item_csr[t] = t * csr_item_per_mtp;
-        mtps_end_item_csr[t] = min(mtps_start_item_csr[t] + csr_item_per_mtp,
-        total_items_csr);
-        row_id_start[t] = p_binary_search(csr_row_ptr, 0, data_vocab_size,
-        mtps_start_item_csr[t]);
+		mtps_start_item_csr[t] = t * csr_item_per_mtp;
+		mtps_end_item_csr[t] = min(mtps_start_item_csr[t] + csr_item_per_mtp,
+			total_items_csr);
+		row_id_start[t] = p_binary_search(csr_row_ptr, 0, data_vocab_size,
+			mtps_start_item_csr[t]);
 		u64 total_items_vrXDoc = num_docs * v_r;
 		u64 item_per_mtp = (total_items_vrXDoc + nmtp_threads - 1)
-				/ nmtp_threads;
+			/ nmtp_threads;
 		u64 mtps_start_item_vrXDoc = t * item_per_mtp;
 
 		u64 mtps_end_item_vrXDoc = (min(mtps_start_item_vrXDoc + item_per_mtp,
-				total_items_vrXDoc));
+			total_items_vrXDoc));
 
 		for (u64 j = mtps_start_item_vrXDoc; j < mtps_end_item_vrXDoc; j++) {
 			x[j] = 0.;
@@ -258,18 +205,18 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 		for (u64 j = mtps_start_item; j < end_point; j++) {
 			const u64 i_offset = j * v_r;
 
-			REAL *M_ptr = M + i_offset;
-			REAL *K_ptr = K + i_offset;
-			REAL *K_over_r_ptr = K_over_r + i_offset;
+			REAL* M_ptr = M + i_offset;
+			REAL* K_ptr = K + i_offset;
+			REAL* K_over_r_ptr = K_over_r + i_offset;
 
-			double const *const v_prt = vecs + j * word2vec_word_embedding_size;
+			double const* const v_prt = vecs + j * word2vec_word_embedding_size;
 			for (u64 i = 0; i < v_r; i++) {
 
 				const REAL multiplier = r_sel[i];
 
 				REAL const M_j = euclidean_distance(
-						v_sel + i * word2vec_word_embedding_size, v_prt);
-                M_ptr[i] = M_j;
+					v_sel + i * word2vec_word_embedding_size, v_prt);
+				M_ptr[i] = M_j;
 				REAL const K_val = exp(M_j * lamda);
 				K_ptr[i] = K_val;
 				K_over_r_ptr[i] = multiplier * K_val;
@@ -277,9 +224,15 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 			}
 		}
 	}
-	
+	/*
+	 for (u64 i = 0; i < v_r; i++) {
+	 for (u64 j = 0; j < 64; j++){
+	 printf("%f\n", K[i * data_vocab_size+j]);
+	 }
+	 }
+	 */
 
-	/******************************************************************/
+	 /******************************************************************/
 
 #if 0
 	print_matrix(K_transpose, data_vocab_size, v_r);
@@ -290,11 +243,11 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 	/***************************Main Loop *********************************/
 	// # while x changes: x=diag(1./r)*K*(c_csr.*(1./(K’*(1./x))))
 	//unsigned long long start = 0, end = 0;
-	
+
 
 	int iteration = 0;
 	while (iteration < max_iter) {
-		
+		//start = getMilliCount();
 
 #pragma omp parallel for
 		for (u64 t = 0; t < nmtp_threads; t++) {
@@ -302,8 +255,8 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 			u64 row_id = row_id_start[t];
 			u64 next_row_idx = csr_row_ptr[row_id + 1];
 
-			 for (u64 idx = mtps_start_item_csr[t]; idx < mtps_end_item_csr[t];
-                  idx++) {
+			for (u64 idx = mtps_start_item_csr[t]; idx < mtps_end_item_csr[t];
+				idx++) {
 				u64 const j = csr_cols[idx];
 				REAL const val = csr_vals[idx];
 
@@ -316,8 +269,8 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 				}
 				REAL sum = 0.;
 
-				REAL *KT_ptr = K + row_id * v_r;
-				REAL *u_ptr = u + j * v_r;
+				REAL* KT_ptr = K + row_id * v_r;
+				REAL* u_ptr = u + j * v_r;
 				for (u64 k = 0; k < v_r; k++) {
 					sum += (KT_ptr[k] * u_ptr[k]);
 				}
@@ -325,8 +278,8 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 				//[Vxnum_docs]
 				REAL const output = ((val / sum));
 
-				REAL *x_ptr = x + j * v_r;
-				REAL *K_r = (K_over_r + row_id * v_r);
+				REAL* x_ptr = x + j * v_r;
+				REAL* K_r = (K_over_r + row_id * v_r);
 				for (u64 i = 0; i < v_r; i++) {
 					const REAL multiplier = K_r[i];
 					// using x for this purpose!
@@ -340,28 +293,48 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 
 			}
 		}
+#if 0
+		for (u64 i = 0; i < v_r; i++) {
 
+			for (u64 j = 0; j < num_docs; j++) {
+
+				cout << x[i * num_docs + j] << "\n";
+
+			}
+		}
+#endif
 
 #pragma omp parallel for
 		for (u64 t = 0; t < nmtp_threads; t++) {
 			u64 total_items_vrXDoc = num_docs * v_r;
 			u64 item_per_mtp = (total_items_vrXDoc + nmtp_threads - 1)
-					/ nmtp_threads;
+				/ nmtp_threads;
 			u64 mtps_start_item_vrXDoc = t * item_per_mtp;
 			u64 mtps_end_item_vrXDoc = (min(
-					mtps_start_item_vrXDoc + item_per_mtp, total_items_vrXDoc));
+				mtps_start_item_vrXDoc + item_per_mtp, total_items_vrXDoc));
 
 			for (u64 j = mtps_start_item_vrXDoc; j < mtps_end_item_vrXDoc;
-					j++) {
+				j++) {
 				u[j] = 1.0 / x[j];
 				x[j] = 0.;
 			}
 
 		}
 
+#if 0
+		for (u64 i = 0; i < v_r; i++) {
 
+			for (u64 j = 0; j < num_docs; j++) {
+
+				cout << u[i * num_docs + j] << "\n";
+
+			}
+		}
+#endif
 		iteration++;
-		
+		//end += getMilliSpan(start);
+		//cout << "It=" << iteration << " |" << (double) end / 1000.0 << " s"
+		//		<< endl;
 	}
 
 	//  u = 1.0 / x
@@ -372,7 +345,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 		u64 next_row_idx = csr_row_ptr[row_id + 1];
 
 		for (u64 idx = mtps_start_item_csr[t]; idx < mtps_end_item_csr[t];
-                  idx++) {
+			idx++) {
 			u64 const j = csr_cols[idx];
 			REAL const val = csr_vals[idx];
 
@@ -384,8 +357,8 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 				next_row_idx = csr_row_ptr[row_id + 1];
 			}
 			double sum = 0.;
-			REAL *KT_prt = (K + row_id * v_r);
-			REAL *u_ptr = (u + j * v_r);
+			REAL* KT_prt = (K + row_id * v_r);
+			REAL* u_ptr = (u + j * v_r);
 #pragma unroll
 			for (u64 k = 0; k < v_r; k++) {
 				sum += (KT_prt[k] * u_ptr[k]);
@@ -394,7 +367,7 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 			//[Vxnum_docs]
 			const REAL output = ((val / sum));
 			//cout<<output<<endl;
-			REAL *x_ptr = x + j * v_r;
+			REAL* x_ptr = x + j * v_r;
 			for (u64 i = 0; i < v_r; i++) {
 				const u64 index = i + row_id * v_r;
 				const REAL multiplier = K[index] * M[index];
@@ -406,14 +379,14 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 			}
 
 		}
-		
+		//#pragma omp barrier
 	}
 
 #pragma omp parallel for
 	for (u64 j = 0; j < num_docs; j++) {
 		REAL wmd_j = 0.0;
-		REAL *u_ptr = u + j * v_r;
-		REAL *x_ptr = x + j * v_r;
+		REAL* u_ptr = u + j * v_r;
+		REAL* x_ptr = x + j * v_r;
 		for (u64 i = 0; i < v_r; i++) {
 			//x[i * num_docs + j] = u[i * num_docs + j] * x[i * num_docs + j];
 			REAL x_ij = u_ptr[i] * x_ptr[i];
@@ -422,12 +395,12 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 		WMD[j] = wmd_j;
 	}
 
-    #pragma omp parallel
-    {
-        #pragma omp barrier
-    }
-    end = getMilliSpan(start);
-	cout << "elapsed=" << (double) end / 1000.0 << endl;
+#pragma omp parallel
+	{
+#pragma omp barrier
+	}
+	//end = getMilliSpan(start);
+	//cout << "elapsed=" << (double)end / 1000.0 << endl;
 	// free all allocated memory
 	free(x);
 	free(u);
@@ -436,14 +409,17 @@ void inline sinkhorn_wmd(const double *r, const double *vecs, REAL *WMD,
 	free(K_over_r);
 	free(v_sel);
 	free(r_sel);
+	delete[] mtps_start_item_csr;
+	delete[] mtps_end_item_csr;
+	delete[] row_id_start;
 }
 
 
-void main(int argc, char *argv[]) {
-	const char *mat_filename = "./mat.mtx";
+int main(int argc, char* argv[]) {
+	const char* mat_filename = "./data/mat.mtx";
 
 	cout << "Reading c_csr matrix csr: " << mat_filename << endl;
-	ifstream mat_file( mat_filename);
+	ifstream mat_file(mat_filename);
 
 	if (!mat_file.is_open()) {
 		cout << "Could not open the file:" << mat_filename << " exiting\n";
@@ -457,25 +433,25 @@ void main(int argc, char *argv[]) {
 
 #ifdef VERBOSE
 	cout << "Running: " << argv[0] << ", V:" << c_csr.num_rows
-			<< ", docs:" << c_csr.num_cols << ", occurances:" << c_csr.nnz << endl;
+		<< ", docs:" << c_csr.num_cols << ", occurances:" << c_csr.nnz << endl;
 #endif
 	// allocate memory for the graph
-	posix_memalign((void**) &c_csr.row_ptr, ALN,
-			(c_csr.num_rows + 1) * sizeof(u64));
+	posix_memalign((void**)&c_csr.row_ptr, ALN,
+		(c_csr.num_rows + 1) * sizeof(u64));
 	assert(c_csr.row_ptr != NULL);
 
-	posix_memalign((void**) &c_csr.col_inds, ALN, (c_csr.nnz) * sizeof(u64));
+	posix_memalign((void**)&c_csr.col_inds, ALN, (c_csr.nnz) * sizeof(u64));
 	assert(c_csr.col_inds != NULL);
 
-	posix_memalign((void**) &c_csr.vals, ALN, (c_csr.nnz) * sizeof(double));
+	posix_memalign((void**)&c_csr.vals, ALN, (c_csr.nnz) * sizeof(double));
 	assert(c_csr.vals != NULL);
 
-	u64 *degree;
-	posix_memalign((void**) &degree, ALN, (c_csr.num_rows + 1) * sizeof(u64));
+	u64* degree;
+	posix_memalign((void**)&degree, ALN, (c_csr.num_rows + 1) * sizeof(u64));
 	assert(degree != NULL);
 
-	connector_t *edgeList;
-	posix_memalign((void**) &edgeList, ALN, (c_csr.nnz) * sizeof(connector_t));
+	connector_t* edgeList;
+	posix_memalign((void**)&edgeList, ALN, (c_csr.nnz) * sizeof(connector_t));
 	assert(edgeList != NULL);
 
 #pragma omp parallel for
@@ -502,7 +478,7 @@ void main(int argc, char *argv[]) {
 
 	mat_file.close();
 	cout << "nnz: " << i << " out of: " << c_csr.num_cols * c_csr.num_rows
-			<< endl;
+		<< endl;
 
 	c_csr.row_ptr[0] = 0;
 	// compute prefix sum
@@ -515,19 +491,19 @@ void main(int argc, char *argv[]) {
 		u64 word1 = edgeList[i].u;
 		u64 k = c_csr.row_ptr[word1] + degree[word1];
 		c_csr.col_inds[k] = edgeList[i].v;
-		c_csr.vals[k] = (double) edgeList[i].edge_weight;
+		c_csr.vals[k] = (double)edgeList[i].edge_weight;
 		degree[word1]++;
 	}
 
 	free(edgeList);
 
 	//////////////////////////////////////////////////////////////////
-	const char *v_filename = "./vecs.out";
+	const char* v_filename = "./data/vecs.out";
 	cout << "reading vecs (sparse vector): " << v_filename << endl;
-	ifstream v_file( v_filename);
+	ifstream v_file(v_filename);
 
-	posix_memalign((void**) &vecs, ALN,
-			(c_csr.num_rows * word2vec_word_embedding_size) * sizeof(double));
+	posix_memalign((void**)&vecs, ALN,
+		(c_csr.num_rows * word2vec_word_embedding_size) * sizeof(double));
 	assert(vecs != NULL);
 
 	if (!v_file.is_open()) {
@@ -538,11 +514,11 @@ void main(int argc, char *argv[]) {
 	i = 0;
 	for (u64 j = 0; j < c_csr.num_rows; j++) {
 		getline(v_file, line);
-		stringstream linestream( line);
+		stringstream linestream(line);
 		string data;
 		for (u64 l = 0; l < word2vec_word_embedding_size; l++) {
 			std
-			::getline(linestream, data, ','); // read up-to the
+				::getline(linestream, data, ','); // read up-to the
 			vecs[j * word2vec_word_embedding_size + l] = stod(data);
 		}
 
@@ -550,11 +526,11 @@ void main(int argc, char *argv[]) {
 	v_file.close();
 
 	// Now read from the r.out file: this is the word frequency in the input file.
-	const char *r_filename = "./r.out";
+	const char* r_filename = "./data/r.out";
 	cout << "reading r (sparse vector): " << r_filename << endl;
-	ifstream r_file( r_filename);
+	ifstream r_file(r_filename);
 
-	posix_memalign((void**) &r_arr, ALN, (c_csr.num_rows) * sizeof(double));
+	posix_memalign((void**)&r_arr, ALN, (c_csr.num_rows) * sizeof(double));
 	assert(r_arr != NULL);
 
 	if (!r_file.is_open()) {
@@ -576,53 +552,54 @@ void main(int argc, char *argv[]) {
 	r_file.close();
 
 	// select non-zero entry
-	posix_memalign((void**) &r_sel, ALN, (c_csr.num_rows) * sizeof(double));
+	posix_memalign((void**)&r_sel, ALN, (c_csr.num_rows) * sizeof(double));
 	assert(r_sel != NULL);
 
-	posix_memalign((void**) &v_sel, ALN,
-			(c_csr.num_rows * word2vec_word_embedding_size) * sizeof(double));
+	posix_memalign((void**)&v_sel, ALN,
+		(c_csr.num_rows * word2vec_word_embedding_size) * sizeof(double));
 	assert(v_sel != NULL);
 
-	REAL *WMD;
-	posix_memalign((void**) &WMD, ALN, (c_csr.num_cols) * sizeof(REAL));
+	REAL* WMD;
+	posix_memalign((void**)&WMD, ALN, (c_csr.num_cols) * sizeof(REAL));
 	assert(WMD != NULL);
 
 #pragma omp parallel
 	{
 		nmtp_threads = omp_get_num_threads();
 	}
-	cout << "num_threads "<<nmtp_threads << endl;
+	cout << "num_threads " << nmtp_threads << endl;
 
 	// Main function.
 	unsigned long long start = 0, end = 0;
 	start = getMilliCount();
-	//auto start_time = chrono::high_resolution_clock::now();
+	
 	sinkhorn_wmd(r_arr, vecs, WMD, lamda, max_iter, c_csr.num_rows,
-			c_csr.num_cols, word2vec_word_embedding_size);
+		c_csr.num_cols, word2vec_word_embedding_size);
 
 	end = getMilliSpan(start);
-
-	cout << "elapsed=" << (double) end / 1000.0 << endl;
+    cout << "volcabulary size in the input doc: " << v_r << endl;
+	cout << "elapsed=" << (double)end / 1000.0 << endl;
 	// write output files in scores file
 	ofstream outfile;
 	outfile.open("scores", std::ofstream::out);
 	for (u64 j = 0; j < c_csr.num_cols; j++) {
 		outfile << std
-	::setprecision(9) << WMD[j] << endl;
-	//cout<<std::setprecision(9) << WMD[j] << endl;
-}
-outfile.close();
+			::setprecision(9) << WMD[j] << endl;
+		//cout<<std::setprecision(9) << WMD[j] << endl;
+	}
+	outfile.close();
 
-// free allocated memory
-free(WMD);
-free(vecs);
-free(r_arr);
+	// free allocated memory
+	free(WMD);
+	free(vecs);
+	free(r_arr);
 
-free(c_csr.col_inds);
-free(c_csr.row_ptr);
-free(c_csr.vals);
+	free(c_csr.col_inds);
+	free(c_csr.row_ptr);
+	free(c_csr.vals);
 
-//free(w_csc.row_inds);
-//free(w_csc.col_ptr);
-//free(w_csc.vals);
+	//free(w_csc.row_inds);
+	//free(w_csc.col_ptr);
+	//free(w_csc.vals);
+    return 0;
 }
