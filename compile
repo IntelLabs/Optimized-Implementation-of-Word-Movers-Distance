@@ -1,0 +1,3 @@
+icpc -O3 -fopenmp -xHost -g -restrict -std=c++11 -finline -unroll -ansi-alias -qopt-subscript-in-range sinkhorn_wmd_puma_fused.cpp -o wmd_b
+icpc -O3 -fopenmp -xHost -g -restrict -std=c++11 -finline -unroll -ansi-alias -qopt-subscript-in-range sinkhorn_wmd_nonfused.cpp -o wmd_nonfused
+icpc -O3 -fopenmp -xHost -g -restrict -std=c++11 -finline -unroll -ansi-alias -qopt-subscript-in-range sinkhorn_wmd_naive.cpp -o wmd_naive
