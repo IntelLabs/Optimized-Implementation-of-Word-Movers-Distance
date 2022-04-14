@@ -1,7 +1,7 @@
 icpc -O3 -fopenmp -xHost -g -restrict -std=c++11 -finline -unroll -ansi-alias -qopt-subscript-in-range sinkhorn_wmd_fused.cpp -o wmd_b
 icpc -O3 -fopenmp -xHost -g -restrict -std=c++11 -finline -unroll -ansi-alias -qopt-subscript-in-range sinkhorn_wmd_nonfused.cpp -o wmd_nonfused
 icpc -O3 -fopenmp -xHost -g -restrict -std=c++11 -finline -unroll -ansi-alias -qopt-subscript-in-range sinkhorn_wmd_naive.cpp -o wmd_naive
-gcc -O3 -fopenmp  -g -Wrestrict -std=c++11 -finline -unroll   -lstdc++ -lm -ftree-vectorize -msse2 -mfpmath=sse -ftree-vectorizer-verbose=5 sinkhorn_wmd_fused.cpp -o wmd_b_gcc
-gcc -O3 -fopenmp  -g -Wrestrict -std=c++11 -finline -unroll   -lstdc++ -lm -ftree-vectorize -msse2 -mfpmath=sse -ftree-vectorizer-verbose=5 sinkhorn_wmd_nonfused.cpp -o wmd_nonfused_gcc
-gcc -O3 -fopenmp  -g -Wrestrict -std=c++11 -finline -unroll   -lstdc++ -lm -ftree-vectorize -msse2 -mfpmath=sse -ftree-vectorizer-verbose=5 sinkhorn_wmd_naive.cpp -o wmd_naive_gcc
+g++ -O3 -fopenmp  -g -Wrestrict -std=c++11 -finline -unroll   -lstdc++ -lm -ftree-vectorize -msse2 -mfpmath=sse -ftree-vectorizer-verbose=5 sinkhorn_wmd_fused.cpp -o wmd_b_gcc
+g++ -O3 -fopenmp  -g -Wrestrict -std=c++11 -finline -unroll   -lstdc++ -lm -ftree-vectorize -msse2 -mfpmath=sse -ftree-vectorizer-verbose=5 sinkhorn_wmd_nonfused.cpp -o wmd_nonfused_gcc
+g++ -O3 -fopenmp  -g -Wrestrict -std=c++11 -finline -unroll   -lstdc++ -lm -ftree-vectorize -msse2 -mfpmath=sse -ftree-vectorizer-verbose=5 sinkhorn_wmd_naive.cpp -o wmd_naive_gcc
 
