@@ -17,6 +17,13 @@ Paper reference will be added upon publication.
 * Remove the first line from the file which is 200000 300
 
 * Then you should be good to go. We do not provide the file, since it is large.
+*   * Here is a sequence of commands
+*   * head -n100001downloaded_file >test.out
+*   * sed '1d' test.out > test2.out
+*   * cut -d"," -f2- test2.out > data/vecs.out
+*   * rm test.out test2.out 
+
+
 
 * ./name_of_executable
 
