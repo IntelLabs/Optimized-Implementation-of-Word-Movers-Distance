@@ -10,15 +10,13 @@ Paper reference will be added upon publication.
 * source compile
 
 # To Run
-* download the embedding file from https://www.kaggle.com/datasets/yekenot/fasttext-crawl-300d-2m
+* Download the embedding file from https://www.kaggle.com/datasets/yekenot/fasttext-crawl-300d-2m
 
-* Copy the first 100,001 rows in a file called data/vecs.out
+* Then perform the following steps to prepare the input file.
 
-* Remove the first line from the file which is 200000 300
-
-* Then you should be good to go. We do not provide the file, since it is large.
+* We do not provide the file, since it is large.
 *   Here is a sequence of commands that will help:
-*   * take first 100001 lines: head -n100001 downloaded_file >test.out
+*   * take first 100001 lines: head -n100001 crawl-300d-2M.vec >test.out
 *   * remove first line: sed '1d' test.out > test2.out
 *   * remove first column of each line: cut -d" " -f2- test2.out > data/vecs.out
 *   * discard temprary files: rm test.out test2.out 
