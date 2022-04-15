@@ -5,7 +5,7 @@ Paper reference will be added upon publication.
 
 # To Compile
 
-
+* REQUIREMENT: gcc version gcc-7.1.0 or higher
 * source your_icc_compiler 
 * source compile
 
@@ -19,7 +19,7 @@ Paper reference will be added upon publication.
 *   * discard temporary files: rm test.out test2.out 
 
 
-
+* set KMP AFFINITY. For example: export KMP_AFFINITY=compact,1,0,granularity=fine
 * ./name_of_executable
 
 
