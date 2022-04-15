@@ -462,7 +462,7 @@ int main(int argc, char* argv[]) {
 		cout << "Could not open the file:" << v_filename << " exiting\n";
 		exit(0);
 	}
-
+    i=0;
 	for (u64 j = 0; j < c_csr.num_rows && !v_file.eof(); j++) {
 		getline(v_file, line);
 		stringstream linestream(line);
