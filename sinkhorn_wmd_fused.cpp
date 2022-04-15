@@ -9,7 +9,7 @@ double* v_sel;
 u64 v_r = 0;
 /******************************* Global Variables ************************/
 
-int max_iter = 1;
+int max_iter = 15;
 puma_csr_double_t c_csr;
 //puma_csc_double_t w_csc;
 
