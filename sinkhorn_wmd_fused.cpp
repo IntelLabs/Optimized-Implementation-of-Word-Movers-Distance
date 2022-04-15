@@ -9,7 +9,7 @@ double* v_sel;
 u64 v_r = 0;
 /******************************* Global Variables ************************/
 
-int max_iter = 1;
+int max_iter = 15;
 puma_csr_double_t c_csr;
 //puma_csc_double_t w_csc;
 
@@ -118,39 +118,39 @@ void inline sinkhorn_wmd(const double* r, const double* vecs, REAL* WMD,
 
 	select_non_empty_entries(data_vocab_size, r, r_sel, v_sel, vecs, v_r);
 
-	
+
 
 	/************************************************************************/
 	// M = cdist(vecs[sel], vecs).astype(np.float64)
-	
+
 #ifdef VERBOSE
 	cout << "volcabulary size in the input doc: " << v_r << endl;
 	cout << "num docs: " << num_docs << endl;
 #endif
 	REAL* M;
-	posix_memalign((void**)&M, ALN, (v_r * data_vocab_size) * sizeof(REAL));
-	assert(M != NULL);
+	assert(posix_memalign((void**)&M, ALN, (v_r * data_vocab_size + 1) * sizeof(REAL)) == 0);
+	//assert(M != NULL);
 
 	//# K=exp(-lambda * M)
 	//  K = np.exp(- M * lamb)
 	REAL* K;
-	posix_memalign((void**)&K, ALN, (v_r * data_vocab_size) * sizeof(REAL));
-	assert(K != NULL);
+	assert(posix_memalign((void**)&K, ALN, (v_r * data_vocab_size + 1) * sizeof(REAL)) == 0);
+	//assert(K != NULL);
 
 
 	REAL* x;
-	posix_memalign((void**)&x, ALN, (v_r * num_docs) * sizeof(REAL));
-	assert(x != NULL);
+	assert(posix_memalign((void**)&x, ALN, (v_r * num_docs + 1) * sizeof(REAL)) == 0);
+	//assert(x != NULL);
 
 	// u=1/x
 	REAL* u;
-	posix_memalign((void**)&u, ALN, (v_r * num_docs) * sizeof(REAL));
-	assert(u != NULL);
+	assert(posix_memalign((void**)&u, ALN, (v_r * num_docs + 1) * sizeof(REAL)) == 0);
+	//assert(u != NULL);
 
 	REAL* K_over_r;
-	posix_memalign((void**)&K_over_r, ALN,
-		(data_vocab_size * v_r) * sizeof(REAL));
-	assert(K_over_r != NULL);
+	assert(posix_memalign((void**)&K_over_r, ALN,
+		(data_vocab_size * v_r + 1) * sizeof(REAL)) == 0);
+	//assert(K_over_r != NULL);
 
 #pragma omp parallel
 	{
@@ -427,34 +427,34 @@ int main(int argc, char* argv[]) {
 	mat_file >> c_csr.num_rows;
 	mat_file >> c_csr.num_cols;
 	mat_file >> c_csr.nnz;
-	
-	if(c_csr.num_rows==0 || c_csr.num_cols==0 || c_csr.nnz==0) 
-    	{
-        cout<< "CSR contains invalid input\n";
-        exit(0);
-    	}
+
+	if (c_csr.num_rows == 0 || c_csr.num_cols == 0 || c_csr.nnz == 0)
+	{
+		cout << "CSR contains invalid input\n";
+		exit(0);
+	}
 
 #ifdef VERBOSE
 	cout << "Running: " << argv[0] << ", V:" << c_csr.num_rows
 		<< ", docs:" << c_csr.num_cols << ", occurances:" << c_csr.nnz << endl;
 #endif
 	// allocate memory for the graph
-	posix_memalign((void**)&c_csr.row_ptr, ALN,
-		(c_csr.num_rows + 1) * sizeof(u64));
+	assert(posix_memalign((void**)&c_csr.row_ptr, ALN,
+		(c_csr.num_rows + 2) * sizeof(u64)) == 0);
 	assert(c_csr.row_ptr != NULL);
 
-	posix_memalign((void**)&c_csr.col_inds, ALN, (c_csr.nnz) * sizeof(u64));
+	assert(posix_memalign((void**)&c_csr.col_inds, ALN, (c_csr.nnz + 1) * sizeof(u64)) == 0);
 	assert(c_csr.col_inds != NULL);
 
-	posix_memalign((void**)&c_csr.vals, ALN, (c_csr.nnz) * sizeof(double));
+	assert(posix_memalign((void**)&c_csr.vals, ALN, (c_csr.nnz + 1) * sizeof(double)) == 0);
 	assert(c_csr.vals != NULL);
 
 	u64* degree;
-	posix_memalign((void**)&degree, ALN, (c_csr.num_rows + 1) * sizeof(u64));
+	assert(posix_memalign((void**)&degree, ALN, (c_csr.num_rows + 2) * sizeof(u64)) == 0);
 	assert(degree != NULL);
 
 	connector_t* edgeList;
-	posix_memalign((void**)&edgeList, ALN, (c_csr.nnz) * sizeof(connector_t));
+	assert(posix_memalign((void**)&edgeList, ALN, (c_csr.nnz + 1) * sizeof(connector_t)) == 0);
 	assert(edgeList != NULL);
 
 #pragma omp parallel for
@@ -505,8 +505,8 @@ int main(int argc, char* argv[]) {
 	cout << "reading vecs (sparse vector): " << v_filename << endl;
 	ifstream v_file(v_filename);
 
-	posix_memalign((void**)&vecs, ALN,
-		(c_csr.num_rows * word2vec_word_embedding_size) * sizeof(double));
+	assert(posix_memalign((void**)&vecs, ALN,
+		(c_csr.num_rows * word2vec_word_embedding_size + 1) * sizeof(double)) == 0);
 	assert(vecs != NULL);
 
 	if (!v_file.is_open()) {
@@ -524,23 +524,23 @@ int main(int argc, char* argv[]) {
 				::getline(linestream, data, ','); // read up-to the
 			vecs[j * word2vec_word_embedding_size + l] = stod(data);
 		}
-        i++;
+		i++;
 
 	}
 	v_file.close();
 
-    if(c_csr.num_rows!=i)
-    {
-        cout << "Dimensions do not match " << v_filename << " exiting\n";
+	if (c_csr.num_rows != i)
+	{
+		cout << "Dimensions do not match " << v_filename << " exiting\n";
 		exit(0);
-    }
-    i=0;
+	}
+	i = 0;
 	// Now read from the r.out file: this is the word frequency in the input file.
 	const char* r_filename = "./data/r.out";
 	cout << "reading r (sparse vector): " << r_filename << endl;
 	ifstream r_file(r_filename);
 
-	posix_memalign((void**)&r_arr, ALN, (c_csr.num_rows) * sizeof(double));
+	assert(posix_memalign((void**)&r_arr, ALN, (c_csr.num_rows + 1) * sizeof(double)) == 0);
 	assert(r_arr != NULL);
 
 	if (!r_file.is_open()) {
@@ -558,25 +558,25 @@ int main(int argc, char* argv[]) {
 		//cout<<r_arr[i]<<endl;
 		i++;
 	}
-	
+
 	r_file.close();
-	
-	if(--i!=c_csr.num_rows)
-    	{
-       	     cout << "Dimension mismatch in:" << r_filename << " exiting\n";
-	     exit(0); 
-    	}
+
+	if (--i != c_csr.num_rows)
+	{
+		cout << "Dimension mismatch in:" << r_filename << " exiting\n";
+		exit(0);
+	}
 
 	// select non-zero entry
-	posix_memalign((void**)&r_sel, ALN, (c_csr.num_rows) * sizeof(double));
+	assert(posix_memalign((void**)&r_sel, ALN, (c_csr.num_rows + 1) * sizeof(double)) == 0);
 	assert(r_sel != NULL);
 
-	posix_memalign((void**)&v_sel, ALN,
-		(c_csr.num_rows * word2vec_word_embedding_size) * sizeof(double));
+	assert(posix_memalign((void**)&v_sel, ALN,
+		(c_csr.num_rows * word2vec_word_embedding_size + 1) * sizeof(double)) == 0);
 	assert(v_sel != NULL);
 
 	REAL* WMD;
-	posix_memalign((void**)&WMD, ALN, (c_csr.num_cols) * sizeof(REAL));
+	assert(posix_memalign((void**)&WMD, ALN, (c_csr.num_cols + 1) * sizeof(REAL)) == 0);
 	assert(WMD != NULL);
 
 #pragma omp parallel
@@ -588,12 +588,12 @@ int main(int argc, char* argv[]) {
 	// Main function.
 	unsigned long long start = 0, end = 0;
 	start = getMilliCount();
-	
+
 	sinkhorn_wmd(r_arr, vecs, WMD, lamda, max_iter, c_csr.num_rows,
 		c_csr.num_cols, word2vec_word_embedding_size);
 
 	end = getMilliSpan(start);
-    cout << "volcabulary size in the input doc: " << v_r << endl;
+	cout << "volcabulary size in the input doc: " << v_r << endl;
 	cout << "elapsed=" << (double)end / 1000.0 << endl;
 	// write output files in scores file
 	ofstream outfile;
@@ -613,9 +613,10 @@ int main(int argc, char* argv[]) {
 	free(c_csr.col_inds);
 	free(c_csr.row_ptr);
 	free(c_csr.vals);
+	free(degree);
 
 	//free(w_csc.row_inds);
 	//free(w_csc.col_ptr);
 	//free(w_csc.vals);
-    return 0;
+	return 0;
 }
