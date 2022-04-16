@@ -22,7 +22,7 @@ Paper reference will be added upon publication.
 * set KMP AFFINITY. For example: export KMP_AFFINITY=compact,1,0,granularity=fine
 * ./name_of_executable
 
-
+* There is also a small input in data (v2, r2, sample.mat, set the input in the program to run, set word2vec size to 3).
 
 ## References
 

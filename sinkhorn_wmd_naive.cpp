@@ -340,6 +340,12 @@ int main(int argc, char* argv[]) {
 	mat_file >> c_csr.num_rows;
 	mat_file >> c_csr.num_cols;
 	mat_file >> c_csr.nnz;
+    
+    if (c_csr.num_rows <= 0 || c_csr.num_cols <= 0 || c_csr.nnz <= 0)
+	{
+		cout << "CSR contains invalid input\n";
+		exit(0);
+	}
 
 #ifdef VERBOSE
 	cout << "Running: " << argv[0] << ", V:" << c_csr.num_rows
@@ -377,6 +383,12 @@ int main(int argc, char* argv[]) {
 		mat_file >> word1;
 		mat_file >> word2;
 		mat_file >> w;
+        
+        if (word1 <= 0 || word2 <= 0 || w <= 0 || word1 > c_csr.num_rows || word2 > c_csr.num_cols)
+		{
+			cout << "CSR contains invalid input\n";
+			exit(0);
+		}
 
 		edgeList[i].u = word1 - 1;
 		edgeList[i].v = word2 - 1;
@@ -389,6 +401,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	mat_file.close();
+    assert(i== c_csr.nnz);
 	cout << "nnz: " << i << " out of: " << c_csr.num_cols * c_csr.num_rows
 		<< endl;
 
@@ -440,6 +453,11 @@ int main(int argc, char* argv[]) {
 
 		r_file >> val;
 		r_arr[i] = val; // std::stof(data);
+        if (val < 0)
+		{
+			cout << "Source contains invalid input\n";
+			exit(0);
+		}
 		i++;
 	}
 	cout << "r_arr length:" << i - 1 << endl;
@@ -463,10 +481,16 @@ int main(int argc, char* argv[]) {
 		getline(v_file, line);
 		stringstream linestream(line);
 		string data;
-		for (u64 l = 0; l < word2vec_word_embedding_size; l++) {
-			std
-				::getline(linestream, data, ','); // read up-to the
+        u64 l = 0;
+		while (std
+			::getline(linestream, data, ' ')) {
 			vecs[j * word2vec_word_embedding_size + l] = stod(data);
+			l++;
+		}
+		if (l != word2vec_word_embedding_size)
+		{
+			cout << "Did not read enough embedding: " << "expecting"<< word2vec_word_embedding_size<< " read "<<l << " exiting\n";
+			exit(0);
 		}
 		i++;
 
