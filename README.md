@@ -1,4 +1,4 @@
-# Sinkhorn Word Movers Distance (sinkhorn_wmd)
+# Sinkhorn Word Movers Distance
 
 This repository hosts the source code for an efficient implementation of "Word Mover's Distance" (WMD) using the Sinkhorn-Knopp algorithm. 
 Paper reference will be added upon publication.
