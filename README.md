@@ -24,7 +24,7 @@ Paper reference will be added upon publication.
 
 * There is also a small input in data (v2, r2, sample.mat, set the input in the program to run, set word2vec size to 3).
 
-# please cite this work as:
+### Please cite this work as:
 @article{tithi2020efficient,
   title={An Efficient Shared-memory Parallel Sinkhorn-Knopp Algorithm to Compute the Word Mover's Distance},
   author={Tithi, Jesmin Jahan and Petrini, Fabrizio},
