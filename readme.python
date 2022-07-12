@@ -1,0 +1,32 @@
+#To run the python program, do the following:
+#!/bin/bash
+
+# sinkhorn_wmd/run.sh
+
+# --
+# Downlaod data
+
+mkdir -p data
+
+wget http://public.sdh.cloud/prog-eval-data/sinkhorn_wmd/crawl-300d-2M.vec.zip -O data/crawl-300d-2M.vec.zip
+wget http://public.sdh.cloud/prog-eval-data/sinkhorn_wmd/dbpedia.train.gz -O data/dbpedia.train.gz
+
+unzip data/crawl-300d-2M.vec.zip -d data/
+rm data/crawl-300d-2M.vec.zip
+gunzip data/dbpedia.train.gz
+
+# --
+# Prepare data
+
+python prep.py --outpath data/cache
+
+# # If you need to save disk space:
+# rm data/crawl-300d-2M.vec
+# rm data/dbpedia.train
+
+# =============== TESTERS: EVERYTHING ABOVE THIS LINE HAS ALREADY BEEN RUN ==============
+
+# --
+# Run
+
+python main.py
