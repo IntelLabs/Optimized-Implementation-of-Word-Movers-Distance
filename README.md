@@ -39,3 +39,4 @@ Paper reference will be added upon publication.
 - [3] [Beginner's Guide to Word2Vec and Neural Word Embeddings](https://skymind.ai/wiki/word2vec)
 - [4] [Notes on Optimal Transport](https://michielstock.github.io/OptimalTransport/)
 
+<!--  Reviewed 5/1/23 MRB -->
